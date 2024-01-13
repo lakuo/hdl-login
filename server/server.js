@@ -1,7 +1,6 @@
 const express = require("express");
 const { google } = require("googleapis");
 const cors = require("cors");
-const secretKey = require("./client_secret.json");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -9,11 +8,13 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+const googleCredentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+
 // Configure JWT client
 const jwtClient = new google.auth.JWT(
-  secretKey.client_email,
+  googleCredentials.client_email,
   null,
-  secretKey.private_key,
+  googleCredentials.private_key,
   ["https://www.googleapis.com/auth/spreadsheets"]
 );
 
