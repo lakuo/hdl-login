@@ -10,7 +10,6 @@ app.use(express.json());
 
 const googleCredentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 
-// Configure JWT client
 const jwtClient = new google.auth.JWT(
   googleCredentials.client_email,
   null,
@@ -18,7 +17,6 @@ const jwtClient = new google.auth.JWT(
   ["https://www.googleapis.com/auth/spreadsheets"]
 );
 
-// Initialize Google Sheets API
 const sheets = google.sheets({ version: "v4" });
 
 jwtClient.authorize(function (err, tokens) {
@@ -30,18 +28,16 @@ jwtClient.authorize(function (err, tokens) {
   }
 });
 
-const spreadsheetId = "18xetLpL9mGBKzEOpGvuW7CH3h7mwjMdkAst8Nm4v7gM"; // Replace with your actual spreadsheet ID
+const spreadsheetId = "18xetLpL9mGBKzEOpGvuW7CH3h7mwjMdkAst8Nm4v7gM";
 
-// Helper function to parse the date in "month-day" format
 const parseDate = (dateString) => {
   const parts = dateString.split("-");
   return new Date(new Date().getFullYear(), parts[0] - 1, parts[1]);
 };
 
-// Endpoint to get a random login
 app.get("/api/random-login", async (req, res) => {
   try {
-    const range = "Sheet1!A2:C"; // Adjust if your Google Sheet has a different name or range
+    const range = "Sheet1!A2:C";
     const response = await sheets.spreadsheets.values.get({
       auth: jwtClient,
       spreadsheetId: spreadsheetId,
@@ -73,11 +69,10 @@ app.get("/api/random-login", async (req, res) => {
   }
 });
 
-// Endpoint to mark a login as used
 app.post("/api/mark-used", async (req, res) => {
   try {
-    const { email } = req.body;
-    const range = "Sheet1!A2:C"; // Adjust if your Google Sheet has a different name or range
+    const { email, name } = req.body;
+    const range = "Sheet1!A2:C";
     const response = await sheets.spreadsheets.values.get({
       auth: jwtClient,
       spreadsheetId: spreadsheetId,
@@ -85,7 +80,7 @@ app.post("/api/mark-used", async (req, res) => {
     });
 
     const logins = response.data.values;
-    const rowIndex = logins.findIndex((row) => row[0] === email) + 2; // Adding 2 because array is 0 indexed and header is not counted
+    const rowIndex = logins.findIndex((row) => row[0] === email) + 2;
     if (rowIndex < 2) {
       return res.status(404).send("Login not found");
     }
@@ -94,14 +89,13 @@ app.post("/api/mark-used", async (req, res) => {
     const today = new Date();
     const formattedDate = `${today.getMonth() + 1}-${today.getDate()}`;
 
+    const valuesToUpdate = [[formattedDate, name]];
     await sheets.spreadsheets.values.update({
       auth: jwtClient,
       spreadsheetId: spreadsheetId,
-      range: updatedRange,
+      range: `Sheet1!C${rowIndex}:D${rowIndex}`,
       valueInputOption: "USER_ENTERED",
-      requestBody: {
-        values: [[formattedDate]],
-      },
+      requestBody: { values: valuesToUpdate },
     });
 
     res.send("Login marked as used");
@@ -111,11 +105,7 @@ app.post("/api/mark-used", async (req, res) => {
   }
 });
 
-// Serve static files from the React app
 app.use(express.static(path.join(__dirname, "..", "frontend", "build")));
-
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "frontend", "build", "index.html"));
 });
