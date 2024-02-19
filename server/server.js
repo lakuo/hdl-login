@@ -48,7 +48,7 @@ app.get("/api/random-login", async (req, res) => {
     const validLogins = logins.filter((row) => {
       const lastUsedDate = parseDate(row[2]);
       const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 5);
       return lastUsedDate < sevenDaysAgo;
     });
 
