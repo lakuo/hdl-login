@@ -2,6 +2,7 @@ const express = require("express");
 const { google } = require("googleapis");
 const cors = require("cors");
 const path = require("path");
+
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -19,7 +20,7 @@ const jwtClient = new google.auth.JWT(
 
 const sheets = google.sheets({ version: "v4" });
 
-jwtClient.authorize(function (err, tokens) {
+jwtClient.authorize((err) => {
   if (err) {
     console.error("Error making JWT client authorize:", err);
     return;
@@ -29,10 +30,13 @@ jwtClient.authorize(function (err, tokens) {
 });
 
 const spreadsheetId = "18xetLpL9mGBKzEOpGvuW7CH3h7mwjMdkAst8Nm4v7gM";
-
 const parseDate = (dateString) => {
-  const parts = dateString.split("-");
-  return new Date(new Date().getFullYear(), parts[0] - 1, parts[1]);
+  const date = new Date(dateString);
+  if (isNaN(date)) {
+    console.warn(`Invalid date format encountered: '${dateString}'`);
+    return null;
+  }
+  return date;
 };
 
 app.get("/api/random-login", async (req, res) => {
@@ -40,15 +44,20 @@ app.get("/api/random-login", async (req, res) => {
     const range = "Sheet1!A2:C";
     const response = await sheets.spreadsheets.values.get({
       auth: jwtClient,
-      spreadsheetId: spreadsheetId,
-      range: range,
+      spreadsheetId,
+      range,
     });
 
-    const logins = response.data.values;
+    const logins = response.data.values || [];
+
     const validLogins = logins.filter((row) => {
+      if (!row[2]) return false; // If no "Last Used" date, skip
       const lastUsedDate = parseDate(row[2]);
+      if (!lastUsedDate) return false; // If date parsing failed, skip
+
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 5);
+
       return lastUsedDate < sevenDaysAgo;
     });
 
@@ -58,6 +67,7 @@ app.get("/api/random-login", async (req, res) => {
 
     const randomIndex = Math.floor(Math.random() * validLogins.length);
     const randomLogin = validLogins[randomIndex];
+
     res.json({
       email: randomLogin[0],
       password: randomLogin[1],
@@ -75,24 +85,24 @@ app.post("/api/mark-used", async (req, res) => {
     const range = "Sheet1!A2:C";
     const response = await sheets.spreadsheets.values.get({
       auth: jwtClient,
-      spreadsheetId: spreadsheetId,
-      range: range,
+      spreadsheetId,
+      range,
     });
 
-    const logins = response.data.values;
+    const logins = response.data.values || [];
     const rowIndex = logins.findIndex((row) => row[0] === email) + 2;
+
     if (rowIndex < 2) {
       return res.status(404).send("Login not found");
     }
-
-    const updatedRange = `Sheet1!C${rowIndex}`;
+    
     const today = new Date();
-    const formattedDate = `${today.getMonth() + 1}-${today.getDate()}`;
-
+    const formattedDate = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
     const valuesToUpdate = [[formattedDate, name]];
+
     await sheets.spreadsheets.values.update({
       auth: jwtClient,
-      spreadsheetId: spreadsheetId,
+      spreadsheetId,
       range: `Sheet1!C${rowIndex}:D${rowIndex}`,
       valueInputOption: "USER_ENTERED",
       requestBody: { values: valuesToUpdate },
@@ -105,6 +115,7 @@ app.post("/api/mark-used", async (req, res) => {
   }
 });
 
+// Serve front-end build
 app.use(express.static(path.join(__dirname, "..", "frontend", "build")));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "frontend", "build", "index.html"));
