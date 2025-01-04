@@ -31,6 +31,7 @@ jwtClient.authorize((err) => {
 
 const spreadsheetId = "18xetLpL9mGBKzEOpGvuW7CH3h7mwjMdkAst8Nm4v7gM";
 const parseDate = (dateString) => {
+  console.log(dateString);
   const date = new Date(dateString);
   if (isNaN(date)) {
     console.warn(`Invalid date format encountered: '${dateString}'`);
@@ -50,6 +51,7 @@ app.get("/api/random-login", async (req, res) => {
 
     const logins = response.data.values || [];
 
+    console.log(logins)
     const validLogins = logins.filter((row) => {
       if (!row[2]) return false; // If no "Last Used" date, skip
       const lastUsedDate = parseDate(row[2]);
